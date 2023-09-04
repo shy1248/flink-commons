@@ -10,7 +10,7 @@ import org.apache.flink.api.java.utils.MultipleParameterTool;
  * @date 2023/09/02 14:17
  **/
 public class SQLSubmitActionFactory implements ActionFactory {
-    private final static String ACTION_NAME = "sql-submit";
+    private static final String ACTION_NAME = "sql-submit";
 
     @Override
     public void showHelp() {

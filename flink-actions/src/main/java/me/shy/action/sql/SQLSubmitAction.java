@@ -52,11 +52,11 @@ public class SQLSubmitAction extends BaseAction {
         List<Tuple2<StatementType, String>> jobStatements = loadStatements(jobStatementsFilePath);
         Configuration configuration = new Configuration();
         TableEnvironment tableEnvironment = TableEnvironment.create(configuration);
+        
         for (Tuple2<StatementType, String> statement : jobStatements) {
             try {
-
-                String sql = statement.f1;
                 StatementType type = statement.f0;
+                String sql = statement.f1;
                 switch (type) {
                     case SET:
                         LOG.info("Executing SET statement: {}", sql);
