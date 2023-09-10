@@ -1,1 +1,2 @@
 me.shy.action.sql.SQLSubmitActionFactory
+me.shy.action.cdc.source.mysql.MySqlSyncDatabaseActionFactory
