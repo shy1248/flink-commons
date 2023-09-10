@@ -146,15 +146,16 @@ public class MySqlActionUtils {
             NestedField field = null;
             JdbcField jdbcField = entry.getValue();
             switch (jdbcField.getType().toUpperCase()) {
-                case "NUMBER":
+                case "INT":
+                case "BIGINT":
                     field = NestedField.of(
-                            jdbcField.getIndex(), true, jdbcField.getName(), 
+                            jdbcField.getIndex(), false, jdbcField.getName(), 
                             IntegerType.get(), jdbcField.getComment());
                     break;
                 case "VARCHAR":
                 case "VARCHAR2":
                     field = NestedField.of(
-                            jdbcField.getIndex(), true, jdbcField.getName(),
+                            jdbcField.getIndex(), false, jdbcField.getName(),
                             StringType.get(), jdbcField.getComment());
                     break;
                 default:

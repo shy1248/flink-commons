@@ -112,14 +112,14 @@ public class MySqlSchema {
 
     public static void main(String[] args) throws SQLException {
         String database = "demo";
-        String username = "flinkuser";
+        String username = "shy";
         String password = "123456";
         String url = String.format("jdbc:mysql://%s:%d", "testbased", 3306);
 
         Connection connection = DriverManager.getConnection(url, username, password);
         DatabaseMetaData metaData = connection.getMetaData();
 
-        MySqlSchema mysqlSchema = MySqlSchema.buildSchema(metaData, database,"sink_stu_info", false);
+        MySqlSchema mysqlSchema = MySqlSchema.buildSchema(metaData, database,"students", false);
 
         System.out.println(mysqlSchema.fieldsToString());
     }

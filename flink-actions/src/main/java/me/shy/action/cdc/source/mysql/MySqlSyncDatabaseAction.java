@@ -5,6 +5,7 @@ import static org.apache.flink.shaded.curator5.org.apache.curator.shaded.com.goo
 
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.source.config.MySqlSourceOptions;
+import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,6 +22,7 @@ import me.shy.action.cdc.source.Identifier;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableProperties;
@@ -66,6 +68,22 @@ public class MySqlSyncDatabaseAction extends BaseAction {
             Map<String, String> catalogConfig,
             Map<String, String> mySqlConfig) {
         org.apache.hadoop.conf.Configuration configuration = new org.apache.hadoop.conf.Configuration();
+        
+        
+        System.setProperty("java.security.krb5.conf",
+                "C:\\Users\\shy\\Documents\\applications\\kerberos-4.1\\krb5.ini");
+        System.setProperty("hadoop.home.dir",
+                "C:\\Users\\shy\\Documents\\applications\\winutils-master\\Hadoop-2.10.0");
+        configuration.set("hadoop.security.authentication", "kerberos");
+        configuration.set("hadoop.rpc.protection", "Privacy");
+        UserGroupInformation.setConfiguration(configuration);
+        try {
+            UserGroupInformation.loginUserFromKeytab("shy/testbased@SHY.ME",
+                    "C:\\Users\\shy\\Downloads\\hadoop.keytab");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         if (catalogType.equalsIgnoreCase("hadoop")) {
             this.catalog = CatalogLoader.hadoop(catalogName, configuration, catalogConfig).loadCatalog();
         } else if (catalogType.equalsIgnoreCase("hive")) {
@@ -81,7 +99,7 @@ public class MySqlSyncDatabaseAction extends BaseAction {
     }
 
     public MySqlSyncDatabaseAction withTableConfig(Map<String, String> tableConfig) {
-        this.tableConfig = tableConfig;
+        this.tableConfig.putAll(tableConfig);
         return this;
     }
 
@@ -158,7 +176,7 @@ public class MySqlSyncDatabaseAction extends BaseAction {
             try {
                 // TODO: Partition support
                 // Only format version 2 support upsert
-                tableConfig.putIfAbsent(TableProperties.FORMAT_VERSION, "2");
+                tableConfig.put(TableProperties.FORMAT_VERSION, "2");
                 catalog.createTable(table, fromMySql, PartitionSpec.unpartitioned(), tableConfig);
             } catch (AlreadyExistsException e){
                 LOG.warn("Table '{}' already exists.", identifier);
