@@ -240,7 +240,7 @@ public class CdcStartup {
             
             FlinkSink.forRowData(rowData)
                     .tableLoader(TableLoader.fromCatalog(icebergClog, TableIdentifier.of("demo", tableName)))
-                    .equalityFieldColumns(Arrays.asList("id"))
+                    .equalityFieldColumns(Collections.singletonList("id"))
                     .upsert(true)
                     .append();
         }

@@ -15,12 +15,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectWriter;
-import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.types.logical.BinaryType;
-import org.apache.flink.table.types.logical.TimestampType;
-import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 
 public class MySqlTypeUtils {
@@ -95,29 +90,13 @@ public class MySqlTypeUtils {
     private static final String MULTILINESTRING = "MULTILINESTRING";
     private static final String MULTIPOLYGON = "MULTIPOLYGON";
     private static final String GEOMETRYCOLLECTION = "GEOMETRYCOLLECTION";
-    private static final String UNKNOWN = "UNKNOWN";
-
-    // This length is from JDBC.
-    // It returns the number of characters when converting this timestamp to string.
-    // The base length of a timestamp is 19, for example "2023-03-23 17:20:00".
-    private static final int JDBC_TIMESTAMP_BASE_LENGTH = 19;
-
     private static final String LEFT_BRACKETS = "(";
     private static final String RIGHT_BRACKETS = ")";
     private static final String COMMA = ",";
 
-    private static final List<String> HAVE_SCALE_LIST =
-            Arrays.asList(DECIMAL, NUMERIC, DOUBLE, REAL, FIXED);
+    private static final List<String> HAVE_SCALE_LIST = Arrays.asList(DECIMAL, NUMERIC, DOUBLE, REAL, FIXED);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    public static Type toIcebergType(String mysqlType) {
-        return toIcebergType(
-                MySqlTypeUtils.getShortType(mysqlType),
-                MySqlTypeUtils.getPrecision(mysqlType),
-                MySqlTypeUtils.getScale(mysqlType),
-                MYSQL_CONVERTER_TINYINT1_BOOL.defaultValue());
-    }
 
     public static Type toIcebergType(
             String type,

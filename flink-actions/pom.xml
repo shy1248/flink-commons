@@ -81,6 +81,12 @@
       <artifactId>flink-connector-mysql-cdc</artifactId>
       <version>${flink.cdc.version}</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.flink</groupId>
+          <artifactId>flink-shaded-guava</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -89,6 +95,10 @@
       <version>${flink.cdc.version}</version>
       <scope>provided</scope>
       <exclusions>
+        <exclusion>
+          <groupId>org.apache.flink</groupId>
+          <artifactId>flink-shaded-guava</artifactId>
+        </exclusion>
         <exclusion>
           <groupId>com.oracle.database.xml</groupId>
           <artifactId>xmlparserv2</artifactId>
@@ -138,6 +148,10 @@
       <scope>provided</scope>
       <exclusions>
         <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
@@ -155,6 +169,10 @@
       <scope>provided</scope>
       <exclusions>
         <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
@@ -171,6 +189,10 @@
       <version>${hadoop.version}</version>
       <scope>provided</scope>
       <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
         <exclusion>
           <groupId>org.apache.logging.log4j</groupId>
           <artifactId>log4j</artifactId>
@@ -215,6 +237,10 @@
         <exclusion>
           <groupId>log4j</groupId>
           <artifactId>log4j</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

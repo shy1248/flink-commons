@@ -14,33 +14,32 @@ public class CdcMultiTableParsingProcessFunction <T> extends ProcessFunction<T, 
     private final EventParser.Factory<T> parserFactory;
 
     private transient EventParser<T> parser;
-    private static Map<String, OutputTag<CdcRecord>> recordOutputTags;
+    private final Map<String, OutputTag<CdcRecord>> recordOutputTags = new HashMap<>();
 
     public CdcMultiTableParsingProcessFunction(EventParser.Factory<T> parserFactory) {
         this.parserFactory = parserFactory;
     }
 
     @Override
-    public void open(Configuration parameters) throws Exception {
+    public void open(Configuration parameters) {
         parser = parserFactory.create();
-        recordOutputTags = new HashMap<>();
     }
 
     @Override
-    public void processElement(T raw, Context context, Collector<Void> collector) throws Exception {
+    public void processElement(T raw, Context context, Collector<Void> collector) {
         parser.setRawEvent(raw);
         String tableName = parser.parseTableName();
         parser.parseRecords()
                 .forEach(record -> context.output(getRecordOutputTag(tableName), record));
     }
     
-    public static OutputTag<CdcRecord> getRecordOutputTag(String tableName) {
+    public OutputTag<CdcRecord> getRecordOutputTag(String tableName) {
         return recordOutputTags.computeIfAbsent(
-                "record-" + tableName, CdcMultiTableParsingProcessFunction::createRecordOutputTag);
+                tableName, CdcMultiTableParsingProcessFunction::createRecordOutputTag);
     }
 
     public static OutputTag<CdcRecord> createRecordOutputTag(String tableName) {
-        return new OutputTag<>("record-" + tableName, TypeInformation.of(CdcRecord.class));
+        return new OutputTag<>(tableName, TypeInformation.of(CdcRecord.class));
     }
 }
 

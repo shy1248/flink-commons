@@ -1,8 +1,6 @@
 package me.shy.action.cdc.source.mysql;
 
-import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -10,7 +8,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import me.shy.action.cdc.source.Identifier;
 import me.shy.action.cdc.source.JdbcField;
 
 public class MySqlSchema {
@@ -26,8 +23,7 @@ public class MySqlSchema {
     public static MySqlSchema buildSchema(
             DatabaseMetaData metaData,
             String databaseName,
-            String tableName,
-            boolean convertTinyintToBool)
+            String tableName)
             throws SQLException {
         LinkedHashMap<String, JdbcField> fields = new LinkedHashMap<>();
         try (ResultSet rs = metaData.getColumns(
@@ -108,19 +104,5 @@ public class MySqlSchema {
                 .map(e -> String.format("%s", e))
                 .collect(Collectors.joining(","))
                 + "], Primary keys: [" + String.join(",", primaryKeys) + "]";
-    }
-
-    public static void main(String[] args) throws SQLException {
-        String database = "demo";
-        String username = "shy";
-        String password = "123456";
-        String url = String.format("jdbc:mysql://%s:%d", "testbased", 3306);
-
-        Connection connection = DriverManager.getConnection(url, username, password);
-        DatabaseMetaData metaData = connection.getMetaData();
-
-        MySqlSchema mysqlSchema = MySqlSchema.buildSchema(metaData, database,"students", false);
-
-        System.out.println(mysqlSchema.fieldsToString());
     }
 }

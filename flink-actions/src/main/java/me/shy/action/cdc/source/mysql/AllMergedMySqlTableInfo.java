@@ -5,24 +5,24 @@ import static org.apache.flink.shaded.curator5.org.apache.curator.shaded.com.goo
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import me.shy.action.cdc.source.Identifier;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 public class AllMergedMySqlTableInfo implements MySqlTableInfo {
 
-    private final List<Identifier> fromTables;
+    private final List<TableIdentifier> fromTables;
     private MySqlSchema schema;
 
     public AllMergedMySqlTableInfo() {
         this.fromTables = new ArrayList<>();
     }
 
-    public void init(Identifier identifier, MySqlSchema schema) {
+    public void init(TableIdentifier identifier, MySqlSchema schema) {
         this.fromTables.add(identifier);
         this.schema = schema;
     }
 
-    public AllMergedMySqlTableInfo merge(Identifier otherTableId, MySqlSchema other) {
-        schema = schema.merge(location(), otherTableId.getFullName(), other);
+    public AllMergedMySqlTableInfo merge(TableIdentifier otherTableId, MySqlSchema other) {
+        schema = schema.merge(location(), otherTableId.toString(), other);
         fromTables.add(otherTableId);
         return this;
     }
@@ -31,11 +31,11 @@ public class AllMergedMySqlTableInfo implements MySqlTableInfo {
     public String location() {
         return String.format(
                 "{%s}",
-                fromTables.stream().map(Identifier::getFullName).collect(Collectors.joining(",")));
+                fromTables.stream().map(TableIdentifier::toString).collect(Collectors.joining(",")));
     }
 
     @Override
-    public List<Identifier> identifiers() {
+    public List<TableIdentifier> identifiers() {
         throw new UnsupportedOperationException(
                 "AllMergedRichMySqlSchema doesn't support converting to identifiers.");
     }

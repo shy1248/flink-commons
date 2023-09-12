@@ -29,24 +29,19 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import me.shy.action.cdc.source.Identifier;
 import me.shy.action.cdc.source.JdbcField;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Preconditions;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpec.Builder;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types.IntegerType;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types.NestedField;
-import org.apache.iceberg.types.Types.StringType;
 import org.apache.kafka.connect.json.JsonConverterConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class MySqlActionUtils {
-    
+
     public static final ConfigOption<Boolean> MYSQL_CONVERTER_TINYINT1_BOOL =
             ConfigOptions.key("mysql.converter.tinyint1-to-bool")
                     .booleanType()
@@ -60,13 +55,13 @@ public class MySqlActionUtils {
                 "jdbc:mysql://%s:%d",
                 mySqlConfig.get(MySqlSourceOptions.HOSTNAME),
                 mySqlConfig.get(MySqlSourceOptions.PORT));
-        
+
         if (mySqlConfig.contains(MYSQL_CONVERTER_TINYINT1_BOOL)) {
             url = String.format(
                     "%s?tinyInt1isBit=%s",
                     url, mySqlConfig.get(MYSQL_CONVERTER_TINYINT1_BOOL));
         }
-        
+
         return DriverManager.getConnection(url,
                 mySqlConfig.get(MySqlSourceOptions.USERNAME),
                 mySqlConfig.get(MySqlSourceOptions.PASSWORD));
@@ -75,7 +70,7 @@ public class MySqlActionUtils {
     static MySqlSchemasInfo getMySqlTableInfos(
             Configuration mySqlConfig,
             Predicate<String> monitorTablePredication,
-            List<Identifier> excludedTables)
+            List<TableIdentifier> excludedTables)
             throws Exception {
         Pattern databasePattern =
                 Pattern.compile(mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME));
@@ -94,9 +89,8 @@ public class MySqlActionUtils {
                                         MySqlSchema.buildSchema(
                                                 metaData,
                                                 databaseName,
-                                                tableName,
-                                                mySqlConfig.get(MYSQL_CONVERTER_TINYINT1_BOOL));
-                                Identifier identifier = Identifier.create(databaseName, tableName);
+                                                tableName);
+                                TableIdentifier identifier = TableIdentifier.of(databaseName, tableName);
                                 if (monitorTablePredication.test(tableName)) {
                                     mySqlSchemasInfo.addSchema(identifier, mySqlSchema);
                                 } else {
@@ -112,12 +106,13 @@ public class MySqlActionUtils {
     }
 
     static Schema buildIcebergSchema(
+            Configuration mySqlConfig,
             MySqlTableInfo mySqlTableInfo,
             boolean caseSensitive) {
         MySqlSchema mySqlSchema = mySqlTableInfo.schema();
         LinkedHashMap<String, JdbcField> mySqlFields;
         List<String> mySqlPrimaryKeys;
-        
+
         if (caseSensitive) {
             mySqlFields = mySqlSchema.fields();
             mySqlPrimaryKeys = mySqlSchema.primaryKeys();
@@ -142,36 +137,26 @@ public class MySqlActionUtils {
         // Columns
         List<NestedField> fields = new ArrayList<>();
         for (Map.Entry<String, JdbcField> entry : mySqlFields.entrySet()) {
-            // TODO: full type mapper
-            NestedField field = null;
             JdbcField jdbcField = entry.getValue();
-            switch (jdbcField.getType().toUpperCase()) {
-                case "INT":
-                case "BIGINT":
-                    field = NestedField.of(
-                            jdbcField.getIndex(), false, jdbcField.getName(), 
-                            IntegerType.get(), jdbcField.getComment());
-                    break;
-                case "VARCHAR":
-                case "VARCHAR2":
-                    field = NestedField.of(
-                            jdbcField.getIndex(), false, jdbcField.getName(),
-                            StringType.get(), jdbcField.getComment());
-                    break;
-                default:
-                    throw new UnsupportedOperationException(
-                            String.format("Unsupport MySQL data type '%s[%s]'.",
-                                    jdbcField.getName(),
-                                    jdbcField.getType()
-                            ));
-            }
+            Type type = MySqlTypeUtils.toIcebergType(
+                    jdbcField.getType(),
+                    jdbcField.getPrecision(),
+                    jdbcField.getScale(),
+                    mySqlConfig.get(MYSQL_CONVERTER_TINYINT1_BOOL));
+
+            NestedField field = NestedField.of(
+                    jdbcField.getIndex(),
+                    mySqlPrimaryKeys.contains(jdbcField.getName()),
+                    jdbcField.getName(),
+                    type,
+                    jdbcField.getComment());
             fields.add(field);
         }
 
         // Primary keys
         Set<Integer> primaryKeyIds = new HashSet<>();
         if (mySqlPrimaryKeys.size() > 0) {
-            for (String key: mySqlPrimaryKeys) {
+            for (String key : mySqlPrimaryKeys) {
                 primaryKeyIds.add(mySqlFields.get(key).getIndex());
             }
         } else {

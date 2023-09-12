@@ -1,4 +1,4 @@
-package me.shy.action.cdc.sink.iceberg;
+package me.shy.action.util;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;

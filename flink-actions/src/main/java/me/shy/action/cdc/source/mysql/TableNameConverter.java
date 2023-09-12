@@ -1,7 +1,7 @@
 package me.shy.action.cdc.source.mysql;
 
 import java.io.Serializable;
-import me.shy.action.cdc.source.Identifier;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 public class TableNameConverter  implements Serializable {
 
@@ -29,13 +29,13 @@ public class TableNameConverter  implements Serializable {
         return prefix + tableName + suffix;
     }
 
-    public String convert(Identifier originIdentifier) {
+    public String convert(TableIdentifier originIdentifier) {
         String rawName =
                 mergeShards
-                        ? originIdentifier.getTableName()
-                        : originIdentifier.getDatabaseName()
+                        ? originIdentifier.name()
+                        : originIdentifier.namespace()
                                 + "_"
-                                + originIdentifier.getTableName();
+                                + originIdentifier.name();
         return convert(rawName);
     }
 }

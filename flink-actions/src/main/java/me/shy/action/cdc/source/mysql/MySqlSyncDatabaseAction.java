@@ -8,7 +8,6 @@ import com.ververica.cdc.connectors.mysql.source.config.MySqlSourceOptions;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +17,6 @@ import javax.annotation.Nullable;
 import me.shy.action.BaseAction;
 import me.shy.action.cdc.EventParser;
 import me.shy.action.cdc.sink.iceberg.FlinkCdcSyncDatabaseSinkBuilder;
-import me.shy.action.cdc.source.Identifier;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -26,7 +24,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableProperties;
-import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.flink.CatalogLoader;
@@ -38,23 +35,18 @@ public class MySqlSyncDatabaseAction extends BaseAction {
 
     private static final Logger LOG = LoggerFactory.getLogger(MySqlSyncDatabaseAction.class);
 
-    private final Catalog catalog;
+    private final CatalogLoader catalogLoader;
     private final String database;
     private final Configuration mySqlConfig;
 
-    private Map<String, String> tableConfig = new HashMap<>();
+    private final Map<String, String> tableConfig = new HashMap<>();
     private boolean mergeShards = true;
     private String tablePrefix = "";
     private String tableSuffix = "";
     private String includingTables = ".*";
     @Nullable
     String excludingTables;
-    private final List<Identifier> excludedTables = new ArrayList<>();
-
-    public MySqlSyncDatabaseAction(
-            String catalogName, String catalogType, String database, Map<String, String> mySqlConfig) {
-        this(catalogName, catalogType, database, Collections.emptyMap(), mySqlConfig);
-    }
+    private final List<TableIdentifier> excludedTables = new ArrayList<>();
 
     @Override
     protected void execute(StreamExecutionEnvironment env, String defaultName) throws Exception {
@@ -68,8 +60,8 @@ public class MySqlSyncDatabaseAction extends BaseAction {
             Map<String, String> catalogConfig,
             Map<String, String> mySqlConfig) {
         org.apache.hadoop.conf.Configuration configuration = new org.apache.hadoop.conf.Configuration();
-        
-        
+
+        // for testing 
         System.setProperty("java.security.krb5.conf",
                 "C:\\Users\\shy\\Documents\\applications\\kerberos-4.1\\krb5.ini");
         System.setProperty("hadoop.home.dir",
@@ -85,15 +77,16 @@ public class MySqlSyncDatabaseAction extends BaseAction {
         }
 
         if (catalogType.equalsIgnoreCase("hadoop")) {
-            this.catalog = CatalogLoader.hadoop(catalogName, configuration, catalogConfig).loadCatalog();
+            this.catalogLoader = CatalogLoader.hadoop(catalogName, configuration, catalogConfig);
         } else if (catalogType.equalsIgnoreCase("hive")) {
-            this.catalog = CatalogLoader.hive(catalogName, configuration, catalogConfig).loadCatalog();
+            this.catalogLoader = CatalogLoader.hive(catalogName, configuration, catalogConfig);
         } else if (catalogType.equalsIgnoreCase("rest")) {
-            this.catalog = CatalogLoader.rest(catalogName,  configuration, catalogConfig).loadCatalog();
+            this.catalogLoader = CatalogLoader.rest(catalogName, configuration, catalogConfig);
         } else {
             throw new IllegalArgumentException(
                     String.format("Unsupport catalog type '%s'.", catalogType));
         }
+
         this.database = database;
         this.mySqlConfig = Configuration.fromMap(mySqlConfig);
     }
@@ -135,51 +128,43 @@ public class MySqlSyncDatabaseAction extends BaseAction {
     }
 
     public void build(StreamExecutionEnvironment env) throws Exception {
-        checkArgument(
-                !mySqlConfig.contains(MySqlSourceOptions.TABLE_NAME),
+        checkArgument(!mySqlConfig.contains(MySqlSourceOptions.TABLE_NAME),
                 MySqlSourceOptions.TABLE_NAME.key()
-                        + " cannot be set for mysql-sync-database. "
-                        + "If you want to sync several MySQL tables into one Iceberg table, "
-                        + "use mysql-sync-table instead.");
+                        + " cannot be set for mysql-sync-database.");
 
         Pattern includingPattern = Pattern.compile(includingTables);
         Pattern excludingPattern =
                 excludingTables == null ? null : Pattern.compile(excludingTables);
         MySqlSchemasInfo mySqlSchemasInfo =
-                MySqlActionUtils.getMySqlTableInfos(
-                        mySqlConfig,
-                        tableName ->
-                                shouldMonitorTable(tableName, includingPattern, excludingPattern),
+                MySqlActionUtils.getMySqlTableInfos(mySqlConfig,
+                        tableName -> shouldMonitorTable(tableName, includingPattern, excludingPattern),
                         excludedTables);
 
         logNonPkTables(mySqlSchemasInfo.nonPkTables());
         List<MySqlTableInfo> mySqlTableInfos = mySqlSchemasInfo.toMySqlTableInfos(mergeShards);
 
-        checkArgument(
-                mySqlTableInfos.size() > 0,
-                "No tables found in MySQL database "
-                        + mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME)
+        checkArgument(mySqlTableInfos.size() > 0,
+                "No tables found in MySQL database " + mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME)
                         + ", or MySQL database does not exist.");
 
         // Create Iceberg Tables
         TableNameConverter tableNameConverter =
                 new TableNameConverter(false, mergeShards, tablePrefix, tableSuffix);
-        List<Identifier> tables = new ArrayList<>();
+        Map<TableIdentifier, Schema> tables = new HashMap<>();
         for (MySqlTableInfo tableInfo : mySqlTableInfos) {
-            Identifier identifier = Identifier.create(database,
-                            tableNameConverter.convert(
-                                    tableInfo.toIcebergTableName()));
-            tables.add(identifier);
-            Schema fromMySql = MySqlActionUtils.buildIcebergSchema(tableInfo, false);
+            Schema fromMySql = MySqlActionUtils.buildIcebergSchema(mySqlConfig, tableInfo, false);
             TableIdentifier table = TableIdentifier.of(
-                    identifier.getDatabaseName(), identifier.getTableName());
+                    database,
+                    tableNameConverter.convert(tableInfo.toIcebergTableName()));
+            tables.put(table, fromMySql);
             try {
                 // TODO: Partition support
                 // Only format version 2 support upsert
                 tableConfig.put(TableProperties.FORMAT_VERSION, "2");
-                catalog.createTable(table, fromMySql, PartitionSpec.unpartitioned(), tableConfig);
-            } catch (AlreadyExistsException e){
-                LOG.warn("Table '{}' already exists.", identifier);
+                catalogLoader.loadCatalog().createTable(
+                        table, fromMySql, PartitionSpec.unpartitioned(), tableConfig);
+            } catch (AlreadyExistsException e) {
+                LOG.warn("Table '{}' already exists.", table);
             }
         }
 
@@ -188,59 +173,31 @@ public class MySqlSyncDatabaseAction extends BaseAction {
 
         String serverTimeZone = mySqlConfig.get(MySqlSourceOptions.SERVER_TIME_ZONE);
         ZoneId zoneId = serverTimeZone == null ? ZoneId.systemDefault() : ZoneId.of(serverTimeZone);
-        Boolean convertTinyint1ToBool = mySqlConfig.get(MYSQL_CONVERTER_TINYINT1_BOOL);
 
-        EventParser.Factory<String> parserFactory =
-                () ->
-                        new MySqlDebeziumJsonEventParser(
-                                zoneId,
-                                false,
-                                tableNameConverter,
-                                includingPattern,
-                                excludingPattern,
-                                convertTinyint1ToBool);
+        EventParser.Factory<String> parserFactory = () -> new MySqlDebeziumJsonEventParser(
+                zoneId, false, tableNameConverter, includingPattern, excludingPattern);
 
         String database = this.database;
         FlinkCdcSyncDatabaseSinkBuilder<String> sinkBuilder =
                 new FlinkCdcSyncDatabaseSinkBuilder<String>()
-                        .withInput(env.fromSource(source,
-                                WatermarkStrategy.noWatermarks(), "MySQL Source"))
+                        .withInput(env.fromSource(
+                                source, WatermarkStrategy.noWatermarks(), "MySQL Source"))
                         .withParserFactory(parserFactory)
+                        .withCatalogLoader(catalogLoader)
                         .withDatabase(database)
                         .withTables(tables);
 
         String sinkParallelism = tableConfig.get(FlinkWriteOptions.WRITE_PARALLELISM.key());
-        if (sinkParallelism != null) {
-            sinkBuilder.withParallelism(Integer.parseInt(sinkParallelism));
-        }
+        sinkBuilder.withParallelism(sinkParallelism != null ? Integer.parseInt(sinkParallelism) : 1);
         sinkBuilder.build();
     }
 
-    private void validateCaseInsensitive() {
-        checkArgument(
-                database.equals(database.toLowerCase()),
-                String.format(
-                        "Database name [%s] cannot contain upper case in case-insensitive catalog.",
-                        database));
-        checkArgument(
-                tablePrefix.equals(tablePrefix.toLowerCase()),
-                String.format(
-                        "Table prefix [%s] cannot contain upper case in case-insensitive catalog.",
-                        tablePrefix));
-        checkArgument(
-                tableSuffix.equals(tableSuffix.toLowerCase()),
-                String.format(
-                        "Table suffix [%s] cannot contain upper case in case-insensitive catalog.",
-                        tableSuffix));
-    }
-
-    private void logNonPkTables(List<Identifier> nonPkTables) {
+    private void logNonPkTables(List<TableIdentifier> nonPkTables) {
         if (!nonPkTables.isEmpty()) {
             LOG.debug(
-                    "Didn't find primary keys for tables '{}'. "
-                            + "These tables won't be synchronized.",
+                    "Didn't find primary keys for tables '{}'. These tables won't be synchronized.",
                     nonPkTables.stream()
-                            .map(Identifier::getFullName)
+                            .map(TableIdentifier::toString)
                             .collect(Collectors.joining(",")));
             excludedTables.addAll(nonPkTables);
         }
@@ -258,42 +215,26 @@ public class MySqlSyncDatabaseAction extends BaseAction {
         return shouldMonitor;
     }
 
-    /**
-     * See {@link com.ververica.cdc.connectors.mysql.debezium.DebeziumUtils#discoverCapturedTables} and
-     * {@code MySqlSyncDatabaseTableListITCase}.
-     */
     private String buildTableList() {
         String separatorRex = "\\.";
-        String includingPattern =
-                String.format(
-                        "(%s)%s(%s)",
-                        mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME),
-                        separatorRex,
-                        includingTables);
+        String includingPattern = String.format("(%s)%s(%s)",
+                mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME), separatorRex, includingTables);
         if (excludedTables.isEmpty()) {
             return includingPattern;
         }
-
-        String excludingPattern =
-                excludedTables.stream()
-                        .map(
-                                t ->
-                                        String.format(
-                                                "(^%s$)",
-                                                t.getDatabaseName()
-                                                        + separatorRex
-                                                        + t.getTableName()))
-                        .collect(Collectors.joining("|"));
+        String excludingPattern = excludedTables.stream()
+                .map(t -> String.format("(^%s$)", t.namespace() + separatorRex + t.name()))
+                .collect(Collectors.joining("|"));
         excludingPattern = "?!" + excludingPattern;
         return String.format("(%s)(%s)", excludingPattern, includingPattern);
-
     }
 
     @Override
     public void run() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(3000L);
         build(env);
-        execute(env, String.format("MySQL->Iceberg Database Sync: %s", database));
+        execute(env, String.format("MySQL => Iceberg Database Sync: %s", database));
     }
 }
 

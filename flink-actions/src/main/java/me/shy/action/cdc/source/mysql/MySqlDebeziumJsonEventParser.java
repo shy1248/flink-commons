@@ -27,14 +27,16 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import me.shy.action.cdc.sink.iceberg.CdcRecord;
 import me.shy.action.cdc.EventParser;
-import me.shy.action.cdc.source.Identifier;
 import org.apache.flink.shaded.curator5.org.apache.curator.shaded.com.google.common.base.Preconditions;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.utils.DateTimeUtils;
 import org.apache.flink.types.RowKind;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.slf4j.Logger;
@@ -55,7 +57,6 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
     @Nullable private final Pattern excludingPattern;
     private final Set<String> includedTables = new HashSet<>();
     private final Set<String> excludedTables = new HashSet<>();
-    private final boolean convertTinyint1ToBool;
 
     private JsonNode root;
     private JsonNode payload;
@@ -66,29 +67,14 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
     public MySqlDebeziumJsonEventParser(
             ZoneId serverTimeZone,
             boolean caseSensitive,
-            boolean convertTinyint1ToBool) {
-        this(
-                serverTimeZone,
-                caseSensitive,
-                new TableNameConverter(caseSensitive),
-                null,
-                null,
-                convertTinyint1ToBool);
-    }
-    
-    public MySqlDebeziumJsonEventParser(
-            ZoneId serverTimeZone,
-            boolean caseSensitive,
             TableNameConverter tableNameConverter,
             @Nullable Pattern includingPattern,
-            @Nullable Pattern excludingPattern,
-            boolean convertTinyint1ToBool) {
+            @Nullable Pattern excludingPattern) {
         this.serverTimeZone = serverTimeZone;
         this.caseSensitive = caseSensitive;
         this.tableNameConverter = tableNameConverter;
         this.includingPattern = includingPattern;
         this.excludingPattern = excludingPattern;
-        this.convertTinyint1ToBool = convertTinyint1ToBool;
     }
 
     @Override
@@ -105,7 +91,7 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
 
     @Override
     public String parseTableName() {
-        return tableNameConverter.convert(Identifier.create(getDatabaseName(), currentTable));
+        return tableNameConverter.convert(TableIdentifier.of(getDatabaseName(), currentTable));
     }
 
     private boolean isSchemaChange() {
@@ -197,7 +183,7 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException(
                             "Invalid big decimal value "
-                                    + oldValue
+                                    + objectValue
                                     + ". Make sure that in the `customConverterConfigs` "
                                     + "of the JsonDebeziumDeserializationSchema you created, set '"
                                     + JsonConverterConfig.DECIMAL_FORMAT_CONFIG
@@ -206,15 +192,18 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
                 }
             } else if (Date.SCHEMA_NAME.equals(className)) {
                 // MySQL date
-                newValue = DateTimeUtils.toLocalDate(Integer.parseInt(oldValue)).toString();
+                newValue = String.valueOf(DateTimeUtils.toLocalDate(Integer.parseInt(oldValue)));
             } else if (Timestamp.SCHEMA_NAME.equals(className)) {
-                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(oldValue)), TimeZone.getDefault(), 3);
+                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(objectValue.toString())),
+                        TimeZone.getDefault(), 3);
             } else if (MicroTimestamp.SCHEMA_NAME.equals(className)) {
-                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(oldValue)), TimeZone.getDefault(), 6);
+                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(objectValue.toString())),
+                        TimeZone.getDefault(), 6);
             } else if (ZonedTimestamp.SCHEMA_NAME.equals(className)) {
-                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(oldValue)), TimeZone.getTimeZone(serverTimeZone), 6);
+                newValue = DateTimeUtils.formatTimestamp(TimestampData.fromEpochMillis(Long.parseLong(objectValue.toString())),
+                        TimeZone.getTimeZone(serverTimeZone), 6);
             } else if (MicroTime.SCHEMA_NAME.equals(className)) {
-                long microseconds = Long.parseLong(oldValue);
+                long microseconds = Long.parseLong(objectValue.toString());
                 long microsecondsPerSecond = 1_000_000;
                 long nanosecondsPerMicros = 1_000;
                 long seconds = microseconds / microsecondsPerSecond;

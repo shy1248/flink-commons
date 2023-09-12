@@ -5,19 +5,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import me.shy.action.cdc.source.Identifier;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 public class MySqlSchemasInfo {
 
-    private final Map<Identifier, MySqlSchema> pkTableSchemas;
-    private final Map<Identifier, MySqlSchema> nonPkTableSchemas;
+    private final Map<TableIdentifier, MySqlSchema> pkTableSchemas;
+    private final Map<TableIdentifier, MySqlSchema> nonPkTableSchemas;
 
     public MySqlSchemasInfo() {
         this.pkTableSchemas = new HashMap<>();
         this.nonPkTableSchemas = new HashMap<>();
     }
 
-    public void addSchema(Identifier identifier, MySqlSchema mysqlSchema) {
+    public void addSchema(TableIdentifier identifier, MySqlSchema mysqlSchema) {
         if (mysqlSchema.primaryKeys().isEmpty()) {
             nonPkTableSchemas.put(identifier, mysqlSchema);
         } else {
@@ -25,20 +25,19 @@ public class MySqlSchemasInfo {
         }
     }
 
-    public List<Identifier> pkTables() {
+    public List<TableIdentifier> pkTables() {
         return new ArrayList<>(pkTableSchemas.keySet());
     }
 
-    public List<Identifier> nonPkTables() {
+    public List<TableIdentifier> nonPkTables() {
         return new ArrayList<>(nonPkTableSchemas.keySet());
     }
-
-    // only merge pk tables now
+    
     public MySqlTableInfo mergeAll() {
         boolean initialized = false;
         AllMergedMySqlTableInfo merged = new AllMergedMySqlTableInfo();
-        for (Map.Entry<Identifier, MySqlSchema> entry : pkTableSchemas.entrySet()) {
-            Identifier id = entry.getKey();
+        for (Map.Entry<TableIdentifier, MySqlSchema> entry : pkTableSchemas.entrySet()) {
+            TableIdentifier id = entry.getKey();
             MySqlSchema schema = entry.getValue();
             if (!initialized) {
                 merged.init(id, schema);
@@ -61,9 +60,9 @@ public class MySqlSchemasInfo {
 
     private List<MySqlTableInfo> mergeShards() {
         Map<String, ShardsMergedMySqlTableInfo> nameSchemaMap = new HashMap<>();
-        for (Map.Entry<Identifier, MySqlSchema> entry : pkTableSchemas.entrySet()) {
-            Identifier id = entry.getKey();
-            String tableName = id.getTableName();
+        for (Map.Entry<TableIdentifier, MySqlSchema> entry : pkTableSchemas.entrySet()) {
+            TableIdentifier id = entry.getKey();
+            String tableName = id.name();
 
             MySqlSchema toBeMerged = entry.getValue();
             ShardsMergedMySqlTableInfo current = nameSchemaMap.get(tableName);

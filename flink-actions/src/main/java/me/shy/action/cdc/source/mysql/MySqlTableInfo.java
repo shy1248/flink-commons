@@ -1,7 +1,7 @@
 package me.shy.action.cdc.source.mysql;
 
 import java.util.List;
-import me.shy.action.cdc.source.Identifier;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 public interface MySqlTableInfo {
 
@@ -13,7 +13,7 @@ public interface MySqlTableInfo {
     /**
      * Return all MySQL table identifiers that build this schema.
      */
-    List<Identifier> identifiers();
+    List<TableIdentifier> identifiers();
 
     String tableName();
 
