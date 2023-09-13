@@ -12,13 +12,13 @@ import org.apache.iceberg.flink.actions.Actions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RewriteAction {
-    private static final Logger LOG = LoggerFactory.getLogger(RewriteAction.class);
+public class RewriteActionTest {
+    private static final Logger LOG = LoggerFactory.getLogger(RewriteActionTest.class);
 
     private final CatalogLoader catalogLoader;
     private final String database;
     
-    public RewriteAction(            
+    public RewriteActionTest(            
             String catalogName,
             String catalogType,
             String database,
@@ -57,7 +57,7 @@ public class RewriteAction {
         Map<String, String> catalogConfig = new HashMap<>();
         catalogConfig.put("uri", "thrift://testbased:9083");
         catalogConfig.put("warehouse", "hdfs://testbased/data/hive");
-        RewriteAction action = new RewriteAction("iceberg_clog", "hive", "demo", catalogConfig);
+        RewriteActionTest action = new RewriteActionTest("iceberg_clog", "hive", "demo", catalogConfig);
         TableIdentifier students = TableIdentifier.of(action.database, "students");
         Table table = action.catalogLoader.loadCatalog().loadTable(students);
         RewriteDataFilesActionResult result =
