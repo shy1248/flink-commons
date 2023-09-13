@@ -34,9 +34,9 @@ public interface ActionFactory {
         }
         
         LOG.info("Starting run Flink Actions: [{}] ...", actionName);
-        LOG.debug("===> Application arguments is: {}", String.join(" ", args));
+        LOG.debug("Application arguments is: {}", String.join(" ", args));
         String[] actionArgs = Arrays.copyOfRange(args, 1, args.length);
-        LOG.info("===> Action arguments is: {}", String.join(" ", actionArgs));
+        LOG.info("Action arguments is: {}", String.join(" ", actionArgs));
         
         MultipleParameterTool params = MultipleParameterTool.fromArgs(actionArgs);
         if (params.has("help")) {

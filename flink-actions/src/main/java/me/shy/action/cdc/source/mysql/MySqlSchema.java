@@ -28,7 +28,7 @@ public class MySqlSchema {
         LinkedHashMap<String, JdbcField> fields = new LinkedHashMap<>();
         try (ResultSet rs = metaData.getColumns(
                 databaseName, null, tableName, null)) {
-            int index = 1;
+            int index = 0;
             while (rs.next()) {
                 String name = rs.getString("COLUMN_NAME");
                 String type = rs.getString("TYPE_NAME");

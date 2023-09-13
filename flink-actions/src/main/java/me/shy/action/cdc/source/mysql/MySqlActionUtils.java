@@ -146,8 +146,8 @@ public class MySqlActionUtils {
 
             NestedField field = NestedField.of(
                     jdbcField.getIndex(),
-                    mySqlPrimaryKeys.contains(jdbcField.getName()),
-                    jdbcField.getName(),
+                    !mySqlSchema.primaryKeys().contains(jdbcField.getName()),
+                    jdbcField.getName().toLowerCase(),
                     type,
                     jdbcField.getComment());
             fields.add(field);

@@ -108,13 +108,21 @@ public class MySqlDebeziumJsonEventParser  implements EventParser<String> {
         Map<String, String> before = extractRow(payload.get("before"));
         if (before.size() > 0) {
             before = caseSensitive ? before : keyCaseInsensitive(before);
-            records.add(new CdcRecord(RowKind.DELETE, before));
+            if (payload.get("op").asText().equalsIgnoreCase("u")) {
+                records.add(new CdcRecord(RowKind.UPDATE_BEFORE, before));
+            } else {
+                records.add(new CdcRecord(RowKind.DELETE, before));
+            }
         }
 
         Map<String, String> after = extractRow(payload.get("after"));
         if (after.size() > 0) {
             after = caseSensitive ? after : keyCaseInsensitive(after);
-            records.add(new CdcRecord(RowKind.INSERT, after));
+            if (payload.get("op").asText().equalsIgnoreCase("u")) {
+                records.add(new CdcRecord(RowKind.UPDATE_AFTER, after));
+            } else {
+                records.add(new CdcRecord(RowKind.INSERT, after));
+            }
         }
 
         return records;

@@ -63,16 +63,13 @@ public class MySqlSchemasInfo {
         for (Map.Entry<TableIdentifier, MySqlSchema> entry : pkTableSchemas.entrySet()) {
             TableIdentifier id = entry.getKey();
             String tableName = id.name();
-
             MySqlSchema toBeMerged = entry.getValue();
             ShardsMergedMySqlTableInfo current = nameSchemaMap.get(tableName);
             if (current == null) {
                 current = new ShardsMergedMySqlTableInfo();
                 current.init(id, toBeMerged);
-                nameSchemaMap.put(tableName, current);
-            } else {
-                nameSchemaMap.put(tableName, current.merge(id, toBeMerged));
             }
+            nameSchemaMap.put(tableName, current.merge(id, toBeMerged));
         }
 
         return new ArrayList<>(nameSchemaMap.values());
