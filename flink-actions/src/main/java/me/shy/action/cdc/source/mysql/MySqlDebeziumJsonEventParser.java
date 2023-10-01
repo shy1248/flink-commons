@@ -31,8 +31,6 @@ import org.apache.flink.shaded.curator5.org.apache.curator.shaded.com.google.com
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.flink.table.data.GenericRowData;
-import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.utils.DateTimeUtils;
 import org.apache.flink.types.RowKind;

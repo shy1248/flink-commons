@@ -1,6 +1,5 @@
 package me.shy.action.cdc.source.mysql;
 
-import static me.shy.action.cdc.source.mysql.MySqlActionUtils.MYSQL_CONVERTER_TINYINT1_BOOL;
 import static org.apache.flink.shaded.curator5.org.apache.curator.shaded.com.google.common.base.Preconditions.checkArgument;
 
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;

@@ -1,12 +1,10 @@
 package me.shy.action.cdc.sink.iceberg;
 
-import io.debezium.ddl.parser.oracle.generated.PlSqlParser.New_values_clauseContext;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
-import javax.swing.plaf.basic.BasicEditorPaneUI;
 import me.shy.action.cdc.EventParser;
 import me.shy.action.util.SingleOutputStreamOperatorUtils;
 import org.apache.flink.api.common.functions.MapFunction;
